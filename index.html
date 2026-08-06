@@ -98,7 +98,7 @@ center; width:100%; gap:11px; padding:14px; border-radius:15px; background:#fff;
 
     <section class="profile-section" id="profile" hidden>
       <div id="authLoginPrompt" hidden><h2>欢迎来到航小帮</h2><p>登录后即可发布任务、接单和管理校园信息</p><button id="authLoginButton" onclick="document.getElementById('authModal').hidden=false;document.body.style.overflow='hidden';document.getElementById('loginPhone').focus();">点击登录/注册</button></div>
-      <div class="profile-hero"><div class="profile-topline"><h2>我的</h2><button id="editNameButton">编辑资料</button></div><div class="profile-user"><div class="profile-avatar" id="profileAvatar">○</div><div><button class="profile-name" id="profileName">校园同学</button><p id="verificationStatus"><span>○</span> 未认证</p><small>信用分：<b>100</b></small></div></div></div>
+      <div class="profile-hero"><div class="profile-topline"><h2>我的</h2><button id="editNameButton">编辑资料</button></div><div class="profile-user"><div class="profile-avatar" id="profileAvatar">○</div><div><button class="profile-name" id="profileName">校园同学</button><p id="verificationStatus"><span>○</span> 未认证</p><small>信用分：<b id="profileCreditScore">100</b></small></div></div></div>
       <div class="profile-stats profile-data"><button id="publishedStat"><span>📤</span><b id="publishedCount">0</b><small>已发布</small></button><button id="acceptedStat"><span>📥</span><b id="acceptedCount">0</b><small>已接单</small></button><button id="completedStat"><span>✅</span><b id="completedCount">0</b><small>已完成</small></button></div>
       <div class="profile-menu" id="profileMenu">
         <button data-menu="published"><span>📤</span><b>我的发布</b><em>›</em></button><button data-menu="accepted"><span>📥</span><b>我的接单</b><em>›</em></button><button data-menu="verify"><span>🪪</span><b>实名认证</b><i></i><em>›</em></button><button data-menu="credit"><span>💚</span><b>信用记录</b><em>›</em></button><button data-menu="favorites"><span>☆</span><b>收藏/关注</b><em>›</em></button><button data-menu="settings"><span>⚙</span><b>设置</b><em>›</em></button><button data-menu="about"><span>ⓘ</span><b>关于我们</b><em>›</em></button>
@@ -254,7 +254,7 @@ function saveUpdatedLocalTask(task) { const tasks = getLocalTasks(); const index
 async function updateTaskAction() { const task = currentDetailTask; if (!task) return; const accepting = task.status === 'open'; const confirmText = accepting ? '确认接单吗？接单后请按时完成任务。' : '确认任务已完成？确认后赏金将结算给接单者。'; if (!window.confirm(confirmText)) return; const button = $('#taskAction button'); button.disabled = true; button.textContent = accepting ? '接单中...' : '确认中...'; try { const { task: updated } = await request(`/tasks/${task.id}/${accepting ? 'accept' : 'complete'}`, { method: 'POST' }); Object.assign(task, updated); const index = allTasks.findIndex((item) => item.id === task.id); if (index !== -1) allTasks[index] = task; allTasks = sortTasks(allTasks); renderDetail(task); updateCounts(); showToast(accepting ? '接单成功，请按时完成任务' : '任务已确认完成'); } catch (error) { showToast(error.message); renderTaskAction(task); } }
 async function openDetail(taskId) { $('#taskDetail').innerHTML = '<p class="loading">正在加载任务…</p>'; $('#messages').innerHTML = '<p class="loading">加载留言中…</p>'; $('#taskAction').innerHTML = ''; openModal('detailModal'); try { const task = String(taskId).startsWith('local-') ? allTasks.find((item) => String(item.id) === String(taskId)) : (await request(`/tasks/${taskId}`)).task; if (!task) throw new Error('任务不存在'); renderDetail(task); } catch (error) { $('#taskDetail').innerHTML = `<p class="error-text">${escapeHtml(error.message)}</p>`; } }
 async function loadMessages() { try { const { messages } = await request(`/tasks/${currentTaskId}/messages`); $('#messages').innerHTML = messages.length ? messages.map((message) => `<div class="message"><b>${escapeHtml(message.sender_name)}</b><p>${escapeHtml(message.content)}</p><time>${timeAgo(message.created_at)}</time></div>`).join('') : '<p class="muted">还没有留言，向发布者问个好吧。</p>'; } catch { $('#messages').innerHTML = '<p class="error-text">留言加载失败</p>'; } }
-async function loadProfile() { try { const { profile, published_tasks, accepted_tasks } = await request('/profile'); profileTasks = { published: published_tasks, accepted: accepted_tasks }; $('#profileName').textContent = profile.name; $('#profileAvatar').textContent = profile.name.slice(0, 1) || '○'; $('#publishedCount').textContent = profile.published_count; $('#acceptedCount').textContent = profile.accepted_count; $('#completedCount').textContent = profile.completed_count; $('#verificationStatus').innerHTML = profile.is_verified ? '<span class="verified">✓</span> 已认证' : '<span>○</span> 未认证'; if (!$('#myTaskView').hidden) showMyTaskList($('#myTaskView').dataset.type || 'published'); } catch (error) { showToast(error.message); } }
+async function loadProfile() { try { const { profile, published_tasks, accepted_tasks } = await request('/profile'); profileTasks = { published: published_tasks, accepted: accepted_tasks }; $('#profileName').textContent = profile.name; $('#profileAvatar').textContent = profile.name.slice(0, 1) || '○'; $('#profileCreditScore').textContent = profile.credit_score || 100; $('#publishedCount').textContent = profile.published_count; $('#acceptedCount').textContent = profile.accepted_count; $('#completedCount').textContent = profile.completed_count; $('#verificationStatus').innerHTML = profile.verified ? '<span class="verified">✓</span> 已认证' : '<span>○</span> 未认证'; if (!$('#myTaskView').hidden) showMyTaskList($('#myTaskView').dataset.type || 'published'); } catch (error) { showToast(error.message); } }
 function myTaskCard(task, type) { const [label, className] = STATUS[task.status] || STATUS.open; const completeButton = type === 'accepted' && task.status === 'in_progress' ? '<button class="my-complete" data-complete="true">确认完成</button>' : ''; return `<article class="task-card task-clickable my-task-card" data-id="${task.id}"><div class="category-icon">${CATEGORY_ICONS[task.category] || '✨'}</div><div class="task-content"><h3>${escapeHtml(task.title)}</h3><p>${escapeHtml(task.description)}</p><div class="task-card-footer"><b class="reward">${rewardText(task)}</b><time>${timeAgo(task.created_at)}</time><span class="status-tag ${className}">${label}</span>${completeButton}</div></div></article>`; }
 function showMyTaskList(type) { const tasks = profileTasks[type] || []; const title = type === 'published' ? '我的发布' : '我的接单'; $('#myTaskTitle').textContent = title; $('#myTaskView').dataset.type = type; $('#myTaskView').hidden = false; $('#profileMenu').hidden = true; $('#myTasks').innerHTML = tasks.length ? `<div class="my-task-list">${tasks.map((task) => myTaskCard(task, type)).join('')}</div>` : `<div class="empty-state"><span class="empty-emoji">📋</span><b>暂无${title}任务</b><span>${type === 'published' ? '去发布第一个任务吧！' : '去任务大厅看看吧！'}</span></div>`; $('#myTasks').querySelectorAll('.my-task-card').forEach((card) => card.onclick = (event) => { if (event.target.closest('[data-complete]')) return; openDetail(card.dataset.id); }); $('#myTasks').querySelectorAll('[data-complete]').forEach((button) => button.onclick = (event) => { event.stopPropagation(); confirmAssignedComplete(button.closest('.my-task-card').dataset.id); }); }
 async function confirmAssignedComplete(taskId) { if (!window.confirm('确认任务已完成？确认后赏金将结算给接单者。')) return; try { await request(`/tasks/${taskId}/complete`, { method: 'POST' }); showToast('任务已确认完成'); await loadProfile(); showMyTaskList('accepted'); loadTasks(); } catch (error) { showToast(error.message); } }
@@ -333,21 +333,27 @@ ensureUser().then(hydrateSupabaseData).then(loadTasks).catch((error) => showToas
     .auth-tabs { display:grid; grid-template-columns:1fr 1fr; margin-bottom:20px; border-bottom:1px solid #e5e7eb; } .auth-tabs button { padding:11px; border:0; background:transparent; color:#64748b; cursor:pointer; }
     .auth-tabs button.active { color:#2563eb; border-bottom:2px solid #2563eb; font-weight:700; }
     .auth-field { display:block; margin:14px 0; color:#334155; font-weight:600; } .auth-field input { width:100%; margin-top:7px; padding:13px; border:1px solid #dbe3ee; border-radius:11px; outline:none; }
-    .auth-code-row { display:flex; gap:8px; } .auth-code-row input { flex:1; } .auth-code-row button { flex:0 0 108px; margin-top:7px; border:0; border-radius:11px; background:#eaf2ff; color:#2563eb; font-size:12px; cursor:pointer; }
     .auth-submit { width:100%; margin-top:10px; padding:14px; border:0; border-radius:12px; color:#fff; background:#3b82f6; font-size:16px; font-weight:700; cursor:pointer; } .auth-submit:disabled { background:#cbd5e1; cursor:not-allowed; }
-    .wechat-panel { padding:28px 10px 14px; text-align:center; } .wechat-logo { display:grid; place-items:center; width:64px; height:64px; margin:0 auto 17px; border-radius:50%; background:#07c160; color:#fff; font-size:31px; } .wechat-panel p { color:#64748b; }
+    .auth-error { min-height:20px; margin:8px 0 0; color:#dc2626; font-size:13px; text-align:center; }
   </style>
   <div class="auth-backdrop" id="authModal" hidden>
     <section class="auth-sheet" role="dialog" aria-modal="true" aria-label="登录或注册">
       <button class="auth-close" id="authClose" type="button" onclick="document.getElementById('authModal').hidden=true;document.body.style.overflow='';">×</button>
       <div class="auth-brand"><b>航小帮</b><p>连接校园生活，从登录开始</p></div>
-      <div class="auth-tabs"><button class="active" data-auth-tab="phone" type="button" onclick="document.getElementById('phoneLoginForm').hidden=false;document.getElementById('wechatLoginPanel').hidden=true;">手机号登录</button><button data-auth-tab="wechat" type="button" onclick="document.getElementById('phoneLoginForm').hidden=true;document.getElementById('wechatLoginPanel').hidden=false;">微信登录</button></div>
-      <form id="phoneLoginForm" onsubmit="event.preventDefault();var p=document.getElementById('loginPhone').value,c=document.getElementById('loginCode').value;if(!/^1\d{10}$/.test(p)||!/^\d{6}$/.test(c)){alert('请输入正确的手机号和6位验证码');return false;}localStorage.setItem('hangxiaobang_login_session',JSON.stringify({phone:p,nickname:'同学'+p.slice(-4),loggedAt:new Date().toISOString()}));document.getElementById('authModal').hidden=true;document.body.style.overflow='';location.reload();return false;">
-        <label class="auth-field">手机号<input id="loginPhone" inputmode="numeric" maxlength="11" placeholder="请输入 11 位手机号"></label>
-        <label class="auth-field">验证码<div class="auth-code-row"><input id="loginCode" inputmode="numeric" maxlength="6" placeholder="请输入 6 位验证码"><button id="sendCodeButton" type="button">发送验证码</button></div></label>
-        <button class="auth-submit" id="phoneLoginButton" type="submit" disabled>登录 / 注册</button>
+      <div class="auth-tabs"><button class="active" data-auth-tab="login" type="button">登录</button><button data-auth-tab="register" type="button">注册</button></div>
+      <form id="loginForm" novalidate>
+        <label class="auth-field">手机号<input id="loginPhone" inputmode="numeric" maxlength="11" placeholder="请输入手机号" autocomplete="tel"></label>
+        <label class="auth-field">密码<input id="loginPassword" type="password" minlength="6" placeholder="请输入密码" autocomplete="current-password"></label>
+        <button class="auth-submit" id="loginSubmit" type="submit" disabled>登录</button>
       </form>
-      <div class="wechat-panel" id="wechatLoginPanel" hidden><div class="wechat-logo">☁</div><p>微信快捷登录即将上线</p><button class="auth-submit" id="wechatLoginButton" type="button" onclick="alert('功能开发中，请使用手机号登录');">微信一键登录</button></div>
+      <form id="registerForm" novalidate hidden>
+        <label class="auth-field">手机号<input id="registerPhone" inputmode="numeric" maxlength="11" placeholder="请输入手机号" autocomplete="tel"></label>
+        <label class="auth-field">昵称（选填）<input id="registerNickname" maxlength="16" placeholder="给自己起个名字吧" autocomplete="nickname"></label>
+        <label class="auth-field">密码<input id="registerPassword" type="password" minlength="6" placeholder="请设置密码，至少6位" autocomplete="new-password"></label>
+        <label class="auth-field">确认密码<input id="registerConfirmPassword" type="password" minlength="6" placeholder="请再次输入密码" autocomplete="new-password"></label>
+        <button class="auth-submit" id="registerSubmit" type="submit" disabled>注册</button>
+      </form>
+      <p class="auth-error" id="authError" aria-live="polite"></p>
     </section>
   </div>
   <script>
@@ -355,15 +361,24 @@ ensureUser().then(hydrateSupabaseData).then(loadTasks).catch((error) => showToas
       var LOGIN_KEY = 'hangxiaobang_login_session';
       var promptBox = document.getElementById('authLoginPrompt');
       var modal = document.getElementById('authModal');
-      var phone = document.getElementById('loginPhone');
-      var code = document.getElementById('loginCode');
-      var loginButton = document.getElementById('phoneLoginButton');
-      var sendButton = document.getElementById('sendCodeButton');
-      var countdown = null;
+      var loginPhone = document.getElementById('loginPhone');
+      var loginPassword = document.getElementById('loginPassword');
+      var registerPhone = document.getElementById('registerPhone');
+      var registerNickname = document.getElementById('registerNickname');
+      var registerPassword = document.getElementById('registerPassword');
+      var registerConfirmPassword = document.getElementById('registerConfirmPassword');
+      var loginButton = document.getElementById('loginSubmit');
+      var registerButton = document.getElementById('registerSubmit');
+      var authError = document.getElementById('authError');
       function session() { try { return JSON.parse(localStorage.getItem(LOGIN_KEY) || 'null'); } catch (e) { return null; } }
       function validPhone(value) { return /^1\d{10}$/.test(value); }
-      function validCode(value) { return /^\d{6}$/.test(value); }
-      function updateLoginButton() { loginButton.disabled = !(validPhone(phone.value) && validCode(code.value)); }
+      function validPassword(value) { return value.length >= 6; }
+      function internalEmail(phone) { return phone + '@phone.hangxiaobang.app'; }
+      function setError(message) { authError.textContent = message || ''; }
+      function updateButtons() {
+        loginButton.disabled = !(validPhone(loginPhone.value) && validPassword(loginPassword.value));
+        registerButton.disabled = !(validPhone(registerPhone.value) && validPassword(registerPassword.value) && validPassword(registerConfirmPassword.value));
+      }
       function setProfileVisibility() {
         var logged = !!session();
         var hero = document.querySelector('#profile .profile-hero');
@@ -378,48 +393,75 @@ ensureUser().then(hydrateSupabaseData).then(loadTasks).catch((error) => showToas
           var user = session();
           document.getElementById('profileName').textContent = user.nickname;
           document.getElementById('profileAvatar').textContent = user.nickname.slice(0, 1);
-          document.getElementById('verificationStatus').innerHTML = '<span>○</span> 未认证';
+          document.getElementById('profileCreditScore').textContent = user.credit_score || 100;
+          document.getElementById('verificationStatus').innerHTML = user.is_verified ? '<span class="verified">✓</span> 已认证' : '<span>○</span> 未认证';
         }
       }
-      function openLogin() { modal.hidden = false; document.body.style.overflow = 'hidden'; phone.focus(); }
+      function openLogin() { modal.hidden = false; document.body.style.overflow = 'hidden'; setError(''); loginPhone.focus(); }
       function closeLogin() { modal.hidden = true; document.body.style.overflow = ''; }
-      async function saveUserToCloud(user) {
-        if (typeof ensureUser !== 'function') return;
-        try {
-          var authUser = await ensureUser();
-          currentNickname = user.nickname;
-          await supabase.from('users').upsert({ id: authUser.id, nickname: user.nickname, phone: user.phone });
-        } catch (e) { console.warn('用户资料云端同步失败', e); }
+      function saveSession(user) {
+        localStorage.setItem(LOGIN_KEY, JSON.stringify({ id: user.id, phone: user.phone, nickname: user.nickname, credit_score: user.credit_score || 100, is_verified: !!user.is_verified, loggedAt: new Date().toISOString() }));
       }
       document.getElementById('authLoginButton').onclick = openLogin;
       document.getElementById('authClose').onclick = closeLogin;
       modal.onclick = function (event) { if (event.target === modal) closeLogin(); };
-      phone.oninput = function () { phone.value = phone.value.replace(/\D/g, ''); updateLoginButton(); };
-      code.oninput = function () { code.value = code.value.replace(/\D/g, ''); updateLoginButton(); };
-      sendButton.onclick = function () {
-        if (!validPhone(phone.value)) { showToast('请输入正确的 11 位手机号'); return; }
-        var remain = 60; sendButton.disabled = true; sendButton.textContent = remain + ' 秒后重发';
-        countdown = setInterval(function () { remain -= 1; sendButton.textContent = remain > 0 ? remain + ' 秒后重发' : '发送验证码'; if (remain <= 0) { clearInterval(countdown); sendButton.disabled = false; } }, 1000);
-        showToast('验证码已发送，任意 6 位数字即可登录');
-      };
+      [loginPhone, registerPhone].forEach(function (input) { input.oninput = function () { input.value = input.value.replace(/\D/g, ''); updateButtons(); }; });
+      [loginPassword, registerPassword, registerConfirmPassword].forEach(function (input) { input.oninput = updateButtons; });
       document.querySelectorAll('[data-auth-tab]').forEach(function (tab) {
         tab.onclick = function () {
           document.querySelectorAll('[data-auth-tab]').forEach(function (item) { item.classList.toggle('active', item === tab); });
-          var usePhone = tab.dataset.authTab === 'phone';
-          document.getElementById('phoneLoginForm').hidden = !usePhone;
-          document.getElementById('wechatLoginPanel').hidden = usePhone;
+          var isLogin = tab.dataset.authTab === 'login';
+          document.getElementById('loginForm').hidden = !isLogin;
+          document.getElementById('registerForm').hidden = isLogin;
+          setError('');
         };
       });
-      document.getElementById('wechatLoginButton').onclick = function () { showToast('功能开发中，请使用手机号登录'); };
-      document.getElementById('phoneLoginForm').onsubmit = async function (event) {
+      document.getElementById('loginForm').onsubmit = async function (event) {
         event.preventDefault();
-        if (!validPhone(phone.value) || !validCode(code.value)) return;
-        var nickname = '同学' + phone.value.slice(-4);
-        var user = { phone: phone.value, nickname: nickname, loggedAt: new Date().toISOString() };
-        localStorage.setItem(LOGIN_KEY, JSON.stringify(user));
-        await saveUserToCloud(user);
-        closeLogin(); setProfileVisibility(); showToast('登录成功，欢迎回来！');
-        if (typeof loadProfile === 'function') loadProfile();
+        if (!validPhone(loginPhone.value) || !validPassword(loginPassword.value)) return;
+        setError(''); loginButton.disabled = true; loginButton.textContent = '登录中...';
+        try {
+          var result = await supabase.auth.signInWithPassword({ email: internalEmail(loginPhone.value), password: loginPassword.value });
+          if (result.error || !result.data.user) {
+            var existing = await supabase.from('users').select('id').eq('phone', loginPhone.value).maybeSingle();
+            setError(existing.data ? '密码错误，请重试' : '该手机号未注册，请先注册'); return;
+          }
+          currentUser = result.data.user;
+          var profileResult = await supabase.from('users').select('id, phone, nickname, credit_score, is_verified').eq('id', currentUser.id).maybeSingle();
+          if (profileResult.error || !profileResult.data) throw new Error('账号资料读取失败，请稍后重试');
+          currentNickname = profileResult.data.nickname;
+          saveSession(profileResult.data); closeLogin(); setProfileVisibility(); showToast('登录成功，欢迎回来！');
+          if (typeof loadProfile === 'function') loadProfile();
+        } catch (error) { setError(error.message || '登录失败，请稍后重试'); }
+        finally { loginButton.textContent = '登录'; updateButtons(); }
+      };
+      document.getElementById('registerForm').onsubmit = async function (event) {
+        event.preventDefault();
+        var phone = registerPhone.value;
+        var password = registerPassword.value;
+        var nickname = registerNickname.value.trim() || ('航小帮用户' + phone.slice(-4));
+        if (!validPhone(phone)) { setError('请输入正确的手机号'); return; }
+        if (!validPassword(password)) { setError('密码至少6位'); return; }
+        if (password !== registerConfirmPassword.value) { setError('两次输入的密码不一致'); return; }
+        setError(''); registerButton.disabled = true; registerButton.textContent = '注册中...';
+        try {
+          var exists = await supabase.from('users').select('id').eq('phone', phone).maybeSingle();
+          if (exists.data) { setError('该手机号已注册，请直接登录'); return; }
+          if (exists.error && exists.error.code !== 'PGRST116') throw exists.error;
+          var signUp = await supabase.auth.signUp({ email: internalEmail(phone), password: password });
+          if (signUp.error || !signUp.data.user) {
+            setError(signUp.error && /already registered/i.test(signUp.error.message) ? '该手机号已注册，请直接登录' : '注册失败，请稍后重试'); return;
+          }
+          if (!signUp.data.session) { setError('注册已创建，请联系管理员关闭邮箱确认后再登录'); return; }
+          currentUser = signUp.data.user;
+          var userData = { id: currentUser.id, phone: phone, nickname: nickname, credit_score: 100, is_verified: false };
+          var write = await supabase.from('users').insert(userData);
+          if (write.error) throw write.error;
+          currentNickname = nickname;
+          saveSession(userData); closeLogin(); setProfileVisibility(); showToast('注册成功，欢迎来到航小帮！');
+          if (typeof loadProfile === 'function') loadProfile();
+        } catch (error) { setError(error.message || '注册失败，请稍后重试'); }
+        finally { registerButton.textContent = '注册'; updateButtons(); }
       };
       document.querySelectorAll('.nav-item').forEach(function (item) {
         item.addEventListener('click', function () { if (item.dataset.page === '我的') setTimeout(setProfileVisibility, 0); });
